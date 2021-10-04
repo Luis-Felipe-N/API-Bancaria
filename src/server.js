@@ -2,7 +2,7 @@ const express = require('express')
 const app = express()
 const { v4: uuidv4 } = require('uuid')
 
-const costumers = []
+const custumers = []
 
 app.get('/', (req, res) => res.json({message: 'oi'}))
 
@@ -11,10 +11,12 @@ app.use(express.json())
 // Midlleware
 function verifyExistAccountCPF( req, res, next ) {
     const {cpf} = req.headers
-    const costumer = costumers.find( costumer => costumer.cpf === cpf)
+    const custumer = custumers.find( custumer => custumer.cpf === cpf)
 
-    if(costumer){
-        req.costumer = costumers[0]
+    // console.log(custumers, cpf)
+
+    if(custumer){
+        req.custumer = custumers[0]
         next()
     } else {
         // not exist
@@ -22,13 +24,24 @@ function verifyExistAccountCPF( req, res, next ) {
     }
 }
 
+function getBalance(statemnt) {
+    const balance = statemnt.reduce( (acc, operation) => {
+        if ( operation.type === "credit" ) {
+            return acc + operation.amount 
+        } else {
+            return acc - operation.amount
+        }
+    }, 0)
+    return balance
+}
+
 app.post('/account', (req, res) => {
     const { cpf, name }  = req.body
     const id = uuidv4()
 
-    if (!costumers.some( pessoa => pessoa.cpf === cpf)) {
+    if (!custumers.some( pessoa => pessoa.cpf === cpf)) {
 
-        costumers.push({cpf, name, id, statement: []})
+        custumers.push({cpf, name, id, statement: []})
         return res.status(201).send('Pessoa cadastrada')
     } else {
         return res.status(400).send('Pessoa já cadastrada')
@@ -36,14 +49,14 @@ app.post('/account', (req, res) => {
 })
 
 app.get('/statement', verifyExistAccountCPF, (req, res) => {
-    const {costumer} = req
-    return res.json(costumer.statement)
+    const {custumer} = req
+    return res.json(custumer.statement)
 })
 
 app.post('/deposit', verifyExistAccountCPF, (req, res) => {
     const { amount, description } = req.body
 
-    const {costumer} = req
+    const {custumer} = req
 
     const parsedDeposit = {
         amount,
@@ -52,9 +65,44 @@ app.post('/deposit', verifyExistAccountCPF, (req, res) => {
         type: "credit"
     }
 
-    costumer.statement.push(parsedDeposit)
+    custumer.statement.push(parsedDeposit)
 
     return res.status(200).send("Deposito concluido")
+})
+
+app.post('/withdraw', verifyExistAccountCPF, (req, res) => {
+    const { amount } = req.body
+    const {custumer} = req
+
+    const balance = getBalance(custumer.statement)
+    
+    if (balance < amount) {
+        res.status(400).send('saldo insuficiente')
+    } else {
+        const withDraw = {
+            amount,
+            created_at: new Date(),
+            type: "debit"
+        }
+
+        custumer.statement.push(withDraw)
+
+        res.status(200).send(('saque feito'))
+    }
+})
+
+app.get('/statement/:date', verifyExistAccountCPF, (req, res) => {
+    const { custumer } = req
+    const { date } = req.query
+
+    const dateFormated = new Date(date + " 00:00")
+    const statement = custumer.statement.filter( statement => statement.created_at.toDateString() === new Date(dateFormated).toDateString())
+
+    if ( statement ) {
+        return res.status(200).json(statement)
+    } else {
+        return res.status(400).json({error: 'Nenhuma operação encontrada'})
+    }
 })
 
 app.listen(3000, () => console.log('Rodando em http://localhost:3000'))  
