@@ -13,8 +13,6 @@ function verifyExistAccountCPF( req, res, next ) {
     const {cpf} = req.headers
     const custumer = custumers.find( custumer => custumer.cpf === cpf)
 
-    // console.log(custumers, cpf)
-
     if(custumer){
         req.custumer = custumers[0]
         next()
@@ -67,7 +65,7 @@ app.post('/deposit', verifyExistAccountCPF, (req, res) => {
 
     custumer.statement.push(parsedDeposit)
 
-    return res.status(200).send("Deposito concluido")
+    return res.status(201).send("Deposito concluido")
 })
 
 app.post('/withdraw', verifyExistAccountCPF, (req, res) => {
@@ -87,7 +85,7 @@ app.post('/withdraw', verifyExistAccountCPF, (req, res) => {
 
         custumer.statement.push(withDraw)
 
-        res.status(200).send(('saque feito'))
+        res.status(201).send(('saque feito'))
     }
 })
 
@@ -103,6 +101,33 @@ app.get('/statement/:date', verifyExistAccountCPF, (req, res) => {
     } else {
         return res.status(400).json({error: 'Nenhuma operação encontrada'})
     }
+})
+
+app.put('/account', verifyExistAccountCPF, (req, res) => {
+    const {name} = req.body
+    const {custumer} = req // só consigo acessar por causa  do middlwware
+
+    custumer.name = name
+
+    console.log(custumer)
+    return res.status(200).json({message: 'Nome alterado com sucesso'})
+})
+
+app.delete('/account', verifyExistAccountCPF, (req, res) => {
+    const { custumer } = req
+
+    custumers.slice(custumer, 1)
+
+    res.status(200).json({message: 'Conta excluida com sucesso'})
+    console.log(custumers)
+})
+
+app.get('/balance', verifyExistAccountCPF, (req, res) => {
+    const { custumer } = req
+
+    const balance = getBalance(custumer.statement)
+
+    return res.status(200).json({balance})
 })
 
 app.listen(3000, () => console.log('Rodando em http://localhost:3000'))  
